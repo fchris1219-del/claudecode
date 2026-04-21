@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS papers (
     pdf_url     TEXT,
     created_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS digests (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT NOT NULL,
+    keywords    TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    send_time   TEXT,
+    created_at  TEXT NOT NULL
+);
 """
 
 

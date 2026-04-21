@@ -44,7 +44,6 @@ async def job_morning_paper_search() -> None:
     import json
     from mobile_server.database import get_db, now_iso
     from mobile_server.services.semantic_scholar import search_papers
-    from mobile_server.services.claude_client import summarize_papers, discuss_papers
     from mobile_server.services.ntfy_client import send_notification
 
     # Get the latest unused keywords
@@ -101,13 +100,16 @@ async def job_morning_paper_search() -> None:
             )
         conn.execute("UPDATE keywords SET used = 1 WHERE id = ?", (kw_id,))
 
-    # Generate summary and discussion via Claude
+    # Generate summary, discussion, and iMessage digest via Claude
+    from mobile_server.services.claude_client import summarize_papers, discuss_papers, generate_daily_digest
     try:
         summary = await summarize_papers(papers)
         discussion = await discuss_papers(papers, keywords)
+        digest = await generate_daily_digest(papers, keywords)
     except Exception as e:
         summary = "\n".join(f"[{i+1}] {p['title']}" for i, p in enumerate(papers))
         discussion = f"（AI 分析暂时不可用：{e}）"
+        digest = summary
 
     # Push summary notification
     await send_notification(
@@ -124,6 +126,14 @@ async def job_morning_paper_search() -> None:
             title="论文主题讨论",
             priority="low",
             tags=["bulb"],
+        )
+
+    # Store digest for iOS Shortcut to fetch and forward to iMessage group
+    ts2 = now_iso()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO digests (date, keywords, content, created_at) VALUES (?, ?, ?, ?)",
+            (search_date, keywords, digest, ts2),
         )
 
 

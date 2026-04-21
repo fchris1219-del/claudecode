@@ -137,3 +137,15 @@ async def get_latest_keywords():
     if not row:
         return {"keywords": None}
     return _row_to_dict(row)
+
+
+@router.get("/routines/digest/latest", dependencies=[Depends(verify_api_key)])
+async def get_latest_digest():
+    """Return the most recent iMessage digest text generated after morning paper search."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM digests ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="暂无摘要，请等待明早论文检索后再试")
+    return _row_to_dict(row)
