@@ -16,5 +16,11 @@ class Settings(BaseSettings):
     db_path: str = "./todos.db"
     timezone: str = "Asia/Shanghai"
 
+    anthropic_api_key: str = ""
+
+    # Default cron schedules (overridable per-routine in DB)
+    evening_prompt_cron: str = "0 21 * * *"   # 9pm
+    morning_search_cron: str = "0 8 * * *"    # 8am
+
 
 settings = Settings()

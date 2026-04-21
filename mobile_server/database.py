@@ -16,6 +16,36 @@ CREATE TABLE IF NOT EXISTS todos (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS routines (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT,
+    enabled     INTEGER DEFAULT 1,
+    cron        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS keywords (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT NOT NULL,
+    keywords    TEXT NOT NULL,
+    used        INTEGER DEFAULT 0,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS papers (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    search_date TEXT NOT NULL,
+    keywords    TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    abstract    TEXT,
+    authors     TEXT,
+    year        INTEGER,
+    url         TEXT,
+    pdf_url     TEXT,
+    created_at  TEXT NOT NULL
+);
 """
 
 

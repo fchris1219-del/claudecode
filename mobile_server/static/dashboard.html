@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手机消息控制台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f5f5f7; color: #1d1d1f; padding: 20px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #6e6e73; margin-bottom: 24px; }
+  .section { background: #fff; border-radius: 12px; padding: 16px;
+             margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .section h2 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #1d1d1f; }
+  .routine { display: flex; align-items: center; justify-content: space-between;
+             padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .routine:last-child { border-bottom: none; }
+  .routine-info h3 { font-size: 14px; font-weight: 500; }
+  .routine-info p  { font-size: 12px; color: #6e6e73; margin-top: 2px; }
+  .toggle { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0;
+            background: #ccc; border-radius: 26px; transition: .2s; }
+  .slider:before { content: ""; position: absolute; height: 20px; width: 20px;
+                   left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  input:checked + .slider { background: #34c759; }
+  input:checked + .slider:before { transform: translateX(18px); }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 8px 10px; border: 1px solid #d2d2d7;
+    border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
+  button { background: #007aff; color: #fff; border: none; border-radius: 8px;
+           padding: 9px 18px; font-size: 14px; cursor: pointer; width: 100%; }
+  button:active { opacity: .8; }
+  button.secondary { background: #f2f2f7; color: #007aff; }
+  .status { font-size: 12px; color: #6e6e73; margin-top: 8px; min-height: 18px; }
+  .status.ok  { color: #34c759; }
+  .status.err { color: #ff3b30; }
+  .paper { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+  .paper:last-child { border-bottom: none; }
+  .paper-title { font-size: 13px; font-weight: 500; }
+  .paper-meta  { font-size: 11px; color: #6e6e73; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>手机消息控制台</h1>
+<p class="subtitle">管理定时任务 · 提交关键词 · 查看论文</p>
+
+<!-- API Key input -->
+<div class="section">
+  <h2>API 密钥</h2>
+  <input type="password" id="apiKey" placeholder="输入 API_KEY" />
+  <button onclick="saveKey()">保存</button>
+  <p class="status" id="keyStatus"></p>
+</div>
+
+<!-- Routines -->
+<div class="section">
+  <h2>定时任务</h2>
+  <div id="routineList"><p class="status">加载中…</p></div>
+  <p class="status" id="routineStatus"></p>
+</div>
+
+<!-- Submit keywords -->
+<div class="section">
+  <h2>提交明日关键词</h2>
+  <input type="text" id="keywords" placeholder="例如：digital inequality, surveillance capitalism" />
+  <button onclick="submitKeywords()">立即提交</button>
+  <p class="status" id="kwStatus"></p>
+</div>
+
+<!-- Send test notification -->
+<div class="section">
+  <h2>立即推送消息</h2>
+  <input type="text" id="notifyTitle" placeholder="标题（可选）" />
+  <input type="text" id="notifyMsg" placeholder="消息内容" />
+  <button onclick="sendNotify()">推送</button>
+  <p class="status" id="notifyStatus"></p>
+</div>
+
+<!-- Latest papers -->
+<div class="section">
+  <h2>最近检索的论文</h2>
+  <button class="secondary" onclick="loadPapers()">刷新论文列表</button>
+  <div id="paperList" style="margin-top:12px"></div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+let KEY = localStorage.getItem('apiKey') || '';
+
+function saveKey() {
+  KEY = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('apiKey', KEY);
+  setStatus('keyStatus', '已保存', true);
+  loadRoutines();
+}
+
+function headers() {
+  return { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' };
+}
+
+function setStatus(id, msg, ok) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+async function loadRoutines() {
+  try {
+    const r = await fetch(BASE + '/routines', { headers: headers() });
+    const data = await r.json();
+    const container = document.getElementById('routineList');
+    container.innerHTML = '';
+    for (const rt of data.routines) {
+      const div = document.createElement('div');
+      div.className = 'routine';
+      div.innerHTML = `
+        <div class="routine-info">
+          <h3>${rt.name}</h3>
+          <p>${rt.description || rt.cron}</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" ${rt.enabled ? 'checked' : ''}
+            onchange="toggleRoutine('${rt.id}', this)" />
+          <span class="slider"></span>
+        </label>`;
+      container.appendChild(div);
+    }
+  } catch(e) {
+    setStatus('routineStatus', '加载失败：' + e.message, false);
+  }
+}
+
+async function toggleRoutine(id, checkbox) {
+  try {
+    const r = await fetch(BASE + '/routines/' + id + '/toggle', {
+      method: 'POST', headers: headers()
+    });
+    const data = await r.json();
+    const state = data.routine.enabled ? '已开启' : '已关闭';
+    setStatus('routineStatus', data.routine.name + ' ' + state, true);
+  } catch(e) {
+    checkbox.checked = !checkbox.checked;
+    setStatus('routineStatus', '操作失败：' + e.message, false);
+  }
+}
+
+async function submitKeywords() {
+  const kw = document.getElementById('keywords').value.trim();
+  if (!kw) { setStatus('kwStatus', '请输入关键词', false); return; }
+  try {
+    const r = await fetch(BASE + '/routines/keywords', {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ keywords: kw })
+    });
+    const data = await r.json();
+    setStatus('kwStatus', '已保存，明早将检索「' + data.keywords + '」', true);
+    document.getElementById('keywords').value = '';
+  } catch(e) {
+    setStatus('kwStatus', '提交失败：' + e.message, false);
+  }
+}
+
+async function sendNotify() {
+  const msg = document.getElementById('notifyMsg').value.trim();
+  if (!msg) { setStatus('notifyStatus', '请输入消息内容', false); return; }
+  const title = document.getElementById('notifyTitle').value.trim() || 'Claude 消息';
+  try {
+    const r = await fetch(BASE + '/notify', {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ title, message: msg, priority: 'default' })
+    });
+    await r.json();
+    setStatus('notifyStatus', '推送成功', true);
+    document.getElementById('notifyMsg').value = '';
+    document.getElementById('notifyTitle').value = '';
+  } catch(e) {
+    setStatus('notifyStatus', '推送失败：' + e.message, false);
+  }
+}
+
+async function loadPapers() {
+  try {
+    const r = await fetch(BASE + '/routines/papers/latest?limit=10', { headers: headers() });
+    const data = await r.json();
+    const container = document.getElementById('paperList');
+    container.innerHTML = '';
+    if (!data.papers.length) {
+      container.innerHTML = '<p class="status">暂无论文记录</p>';
+      return;
+    }
+    for (const p of data.papers) {
+      const div = document.createElement('div');
+      div.className = 'paper';
+      const authors = (p.authors || []).join(', ') || '未知作者';
+      div.innerHTML = `
+        <div class="paper-title">
+          ${p.url ? '<a href="' + p.url + '" target="_blank">' + p.title + '</a>' : p.title}
+        </div>
+        <div class="paper-meta">${authors} · ${p.year || '?'} · 关键词：${p.keywords}</div>`;
+      container.appendChild(div);
+    }
+  } catch(e) {
+    document.getElementById('paperList').innerHTML =
+      '<p class="status err">加载失败：' + e.message + '</p>';
+  }
+}
+
+// Init
+if (KEY) { document.getElementById('apiKey').value = KEY; loadRoutines(); }
+</script>
+</body>
+</html>
